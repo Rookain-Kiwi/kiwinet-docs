@@ -20,7 +20,7 @@ Ce repository est le point d'entrée documentaire de l'ensemble du projet.
 | [`kiwinet-infra-vm`](https://github.com/Rookain-Kiwi/kiwinet-infra-vm) | Provisioning VM via Ansible | IaC |
 | [`kiwinet-infra-cloud`](https://github.com/Rookain-Kiwi/kiwinet-infra-cloud) | Infrastructure cloud via Terraform (Scaleway) | IaC |
 
-> Les repos `kiwinet-infra-vm` et `kiwinet-infra-cloud` sont en cours de création (voir [ADR-001](./docs/adr/001-reorganisation-repositories.md)).
+> Le repo `kiwinet-infra-cloud` est en cours de création (voir [ADR-001](./docs/adr/001-reorganisation-repositories.md)).
 
 ## Liens
 
