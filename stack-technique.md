@@ -1,7 +1,7 @@
 # Stack technique — Kiwinet
 
 > Document de référence des choix technologiques validés.
-> Dernière mise à jour : 7 avril 2026 — Phase 1 complète : kiwinet-services, kiwinet-observability, kiwinet-docs opérationnels.
+> Dernière mise à jour : 8 avril 2026 — Phase 2 validée : kiwinet-infra-vm (Ansible, Bookworm ARM64)
 
 ---
 
@@ -360,7 +360,7 @@ Marge confortable sur 12 Go avec la stack complète active.
 | `kiwinet-observability` (fusion status + monitoring) | ✅ |
 | `kiwinet-status` archivé | ✅ |
 | `kiwinet-monitoring` archivé | ✅ |
-| `kiwinet-infra-vm` (Ansible) | À venir — Phase 2 |
+| `kiwinet-infra-vm` (Ansible) | ✅ Validé (Bookworm ARM64, 8 avril 2026) |
 | `kiwinet-infra-cloud` (Terraform + Scaleway) | À venir — Phase 3 |
 | Pages EN du site | À venir |
 | Renouvellement certificat Freebox | 15/06/2026 |
