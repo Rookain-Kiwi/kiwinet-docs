@@ -48,7 +48,7 @@ La justification de cette organisation est détaillée dans [ADR-001](./docs/adr
 
 **Workflow Git général :**
 ```
-Laptop Debian (VS Code + Claude Code) → git push → GitHub → git pull → VM Debian
+Laptop Debian VS Code → git push → GitHub → git pull → VM Debian
 ```
 
 La VM est uniquement un serveur d'exécution. Aucun IDE n'y est installé.
