@@ -362,7 +362,6 @@ Marge confortable sur 12 Go avec la stack complète active.
 | `kiwinet-monitoring` archivé | ✅ |
 | `kiwinet-infra-vm` (Ansible) | ✅ Validé (Bookworm ARM64, 8 avril 2026) |
 | `kiwinet-infra-cloud` (Terraform + Scaleway) | À venir — Phase 3 |
-| Pages EN du site | À venir |
 | Renouvellement certificat Freebox | 15/06/2026 |
 
 ---
