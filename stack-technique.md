@@ -1,7 +1,7 @@
 # Stack technique — Kiwinet
 
 > Document de référence des choix technologiques validés.
-> Dernière mise à jour : 8 avril 2026 — Phase 2 validée : kiwinet-infra-vm (Ansible, Bookworm ARM64)
+> Dernière mise à jour : 14 avril 2026 — Phase 3 validée : kiwinet-infra-cloud (Terraform + Scaleway, fr-par-1)
 
 ---
 
@@ -334,7 +334,7 @@ Marge confortable sur 12 Go avec la stack complète active.
 |---|---|---|
 | Renouvellement certificats Traefik | Automatique | — |
 | Renouvellement certificat Freebox | 90 jours | 15/06/2026 |
-| Rotation PAT GitHub (`kiwinet-ghcr-push`) | 90 jours | À noter à création |
+| Rotation PAT GitHub (`kiwinet-ghcr-push`) | 90 jours | 14/07/2026 |
 | Mises à jour système VM | Mensuel | — |
 | Rotation clés WireGuard | Si compromis | — |
 | Passage Minecraft VANILLA → PAPER | Dès support 26.1 | À surveiller |
@@ -361,7 +361,7 @@ Marge confortable sur 12 Go avec la stack complète active.
 | `kiwinet-status` archivé | ✅ |
 | `kiwinet-monitoring` archivé | ✅ |
 | `kiwinet-infra-vm` (Ansible) | ✅ Validé (Bookworm ARM64, 8 avril 2026) |
-| `kiwinet-infra-cloud` (Terraform + Scaleway) | À venir — Phase 3 |
+| `kiwinet-infra-cloud` (Terraform + Scaleway) | ✅ Validé (14 avril 2026) |
 | Renouvellement certificat Freebox | 15/06/2026 |
 
 ---
