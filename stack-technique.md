@@ -1,7 +1,7 @@
 # Stack technique — Kiwinet
 
 > Document de référence des choix technologiques validés.
-> Dernière mise à jour : 14 avril 2026 — Phase 3 validée : kiwinet-infra-cloud (Terraform + Scaleway, fr-par-1)
+> Dernière mise à jour : avril 2026 — Phase 4 en cours : HTTPS VPS Scaleway (Traefik + Let's Encrypt)
 
 ---
 
@@ -37,7 +37,7 @@ Six repositories, organisés en deux familles de responsabilité.
 
 | Repository | Rôle | Cycle de déploiement |
 |---|---|---|
-| `kiwinet-infra-vm` | Provisioning VM via Ansible | Init machine + évolutions système |
+| `kiwinet-infra-ansible` | Provisioning VM + VPS via Ansible | Init machine + évolutions système |
 | `kiwinet-infra-cloud` | Infrastructure cloud via Terraform (Scaleway) | Init infra cloud + évolutions |
 | `kiwinet-services` | Services applicatifs Docker Compose | À chaque ajout ou modification de service |
 | `kiwinet-observability` | Supervision : disponibilité, métriques, logs | Rarement (configuration stable) |
@@ -60,20 +60,21 @@ La VM est uniquement un serveur d'exécution. Aucun IDE n'y est installé.
 ```
 Internet
     │
-    ▼
-IP publique fixe (Freebox Delta)
-    │
-    ├── :80   → Freebox → VM → Traefik  (HTTP Challenge + redirection HTTPS)
-    ├── :443  → Freebox → VM → Traefik
-    │               │
-    │               ├── kiwinet.me / www.kiwinet.me  → kiwinet-web (CI/CD)
-    │               ├── traefik.kiwinet.me           → Dashboard Traefik (auth-basic)
-    │               ├── plex.kiwinet.me              → Plex (container Docker)
-    │               ├── hub.kiwinet.me               → Home Assistant (network_mode: host)
-    │               ├── status.kiwinet.me            → Uptime Kuma
-    │               └── grafana.kiwinet.me           → Grafana
-    │
-    ├── :22    → SSH (hors Docker)
+    ├──────────────────────────────────────────────────────────────────┐
+    │                                                                  │
+    ▼                                                                  ▼
+IP publique fixe (Freebox Delta)                          VPS Scaleway (fr-par-1)
+    │                                                          │
+    ├── :80   → Freebox → VM → Traefik                        ├── :80  → Traefik (HTTP Challenge ACME)
+    ├── :443  → Freebox → VM → Traefik                        ├── :443 → Traefik
+    │               │                                          │           │
+    │               ├── traefik.kiwinet.me  → Dashboard        │           └── kiwinet.me / www.kiwinet.me
+    │               ├── plex.kiwinet.me     → Plex             │                   → kiwinet-web (Nginx)
+    │               ├── hub.kiwinet.me      → Home Assistant   │
+    │               ├── status.kiwinet.me   → Uptime Kuma      │
+    │               └── grafana.kiwinet.me  → Grafana          │
+    │                                                          │
+    ├── :22    → SSH (hors Docker)                             └── :2222 → SSH
     ├── :25565 → Minecraft (TCP passthrough Traefik)
     ├── :1883  → Mosquitto MQTT (LAN uniquement)
     └── UDP    → WireGuard VPN (accès réseau local, natif Freebox)
@@ -96,6 +97,8 @@ Traefik doit toujours démarrer en premier — il crée le réseau `proxy`.
 
 ## Ports UFW ouverts
 
+### VM Freebox Delta
+
 | Port  | Protocole | Usage |
 |-------|-----------|-------|
 | 22    | TCP | SSH |
@@ -105,6 +108,14 @@ Traefik doit toujours démarrer en premier — il crée le réseau `proxy`.
 | 32400 | TCP | Plex (accès direct clients distants) |
 | 1883  | TCP | Mosquitto MQTT (LAN uniquement) |
 
+### VPS Scaleway
+
+| Port  | Protocole | Usage |
+|-------|-----------|-------|
+| 2222  | TCP | SSH (non-standard) |
+| 80    | TCP | HTTP Challenge ACME + redirection HTTPS |
+| 443   | TCP | HTTPS |
+
 ---
 
 ## Gestion SSL
@@ -113,15 +124,15 @@ Traefik doit toujours démarrer en premier — il crée le réseau `proxy`.
 
 Un certificat wildcard (`*.kiwinet.me`) nécessiterait un DNS Challenge, qui requiert une API DNS chez le registrar. Bluehost n'en propose pas. Le HTTP Challenge (port 80 ouvert) implique un certificat par domaine — c'est le compromis retenu.
 
-| Certificat | Domaine | Gestionnaire | Renouvellement |
-|---|---|---|---|
-| #1 | `kiwinet.me` + `www` | Traefik | Automatique |
-| #2 | `traefik.kiwinet.me` | Traefik | Automatique |
-| #3 | `plex.kiwinet.me` | Traefik | Automatique |
-| #4 | `hub.kiwinet.me` | Traefik | Automatique |
-| #5 | `status.kiwinet.me` | Traefik | Automatique |
-| #6 | `grafana.kiwinet.me` | Traefik | Automatique |
-| #7 | `freebox.kiwinet.me` | Certbot standalone | Manuel — 15/06/2026 |
+| Certificat | Domaine | Gestionnaire | Hôte | Renouvellement |
+|---|---|---|---|---|
+| #1 | `kiwinet.me` + `www` | Traefik | VPS Scaleway | Automatique |
+| #2 | `traefik.kiwinet.me` | Traefik | VM Freebox | Automatique |
+| #3 | `plex.kiwinet.me` | Traefik | VM Freebox | Automatique |
+| #4 | `hub.kiwinet.me` | Traefik | VM Freebox | Automatique |
+| #5 | `status.kiwinet.me` | Traefik | VM Freebox | Automatique |
+| #6 | `grafana.kiwinet.me` | Traefik | VM Freebox | Automatique |
+| #7 | `freebox.kiwinet.me` | Certbot standalone | VM Freebox | Manuel — 15/06/2026 |
 
 Le certificat `freebox.kiwinet.me` est un cas particulier : la Freebox bloque les connexions en loopback, Traefik ne peut pas lui faire de proxy. Le certificat est généré par Certbot standalone (port 80 libéré temporairement) et importé manuellement dans l'interface Freebox.
 
@@ -192,7 +203,7 @@ url: "http://172.18.0.1:8123"
 - Astro : générateur statique, zéro JavaScript inutile, image Docker finale ~15 Mo
 - Nginx Alpine : serveur de fichiers minimaliste dans le container
 - Build multi-stage : Astro → Nginx Alpine
-- Architecture ARM64 : build cross-compilé via QEMU + Buildx sur runner GitHub Actions x86_64
+- Architecture AMD64 : build natif sur runner GitHub Actions x86_64, déployé sur VPS Scaleway
 
 ---
 
@@ -204,9 +215,9 @@ Déclenché à chaque push sur `main` de `kiwinet-web` :
 git push origin main
     ↓
 GitHub Actions :
-  ├── docker build (linux/arm64 via QEMU/Buildx)
+  ├── docker build (linux/amd64 — natif runner GitHub)
   ├── docker push → ghcr.io/rookain-kiwi/kiwinet-web:latest + :<sha>
-  └── SSH → VM → docker compose pull + up -d
+  └── SSH → VPS Scaleway → docker compose pull + up -d
 ```
 
 Double tag systématique : `latest` (commodité) + `<sha>` (rollback possible vers n'importe quelle version).
@@ -312,7 +323,8 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Registry Docker | GHCR | Cohérence écosystème GitHub |
 | CI/CD | GitHub Actions + SSH | Auditable, secrets maîtrisés |
 | Provisioning VM | Ansible | Idempotent, standard DevOps |
-| Infrastructure cloud | Terraform + Scaleway | IaC, sandbox isolée |
+| Provisioning VPS | Ansible (dual-target) | Même outil, inventaire étendu |
+| Infrastructure cloud | Terraform + Scaleway | IaC, reproductible |
 | Serveur Minecraft | itzg/minecraft-server | ARM64, RCON intégré |
 | Média | Plex (Docker) | Labels Traefik, ARM64 officiel |
 | Domotique | Home Assistant | Open source, Google Cast/MQTT |
@@ -346,9 +358,9 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Étape | Statut |
 |---|---|
 | Infrastructure VM opérationnelle | ✅ |
-| Traefik + SSL | ✅ |
+| Traefik + SSL (VM Freebox) | ✅ |
 | CI/CD GitHub Actions | ✅ |
-| Site portfolio FR | ✅ |
+| Site portfolio FR + EN | ✅ |
 | Plex Media Server | ✅ |
 | Uptime Kuma + alertes Discord | ✅ |
 | Stack Prometheus + Grafana + Loki | ✅ |
@@ -360,10 +372,14 @@ Marge confortable sur 12 Go avec la stack complète active.
 | `kiwinet-observability` (fusion status + monitoring) | ✅ |
 | `kiwinet-status` archivé | ✅ |
 | `kiwinet-monitoring` archivé | ✅ |
-| `kiwinet-infra-vm` (Ansible) | ✅ Validé (Bookworm ARM64, 8 avril 2026) |
+| `kiwinet-infra-ansible` (Ansible dual-target) | ✅ Validé |
 | `kiwinet-infra-cloud` (Terraform + Scaleway) | ✅ Validé (14 avril 2026) |
+| Migration `kiwinet-web` → VPS Scaleway (HTTP) | ✅ Validé (Phase 3) |
+| ADR-003 — Architecture Phase 4 | ✅ |
+| Traefik VPS + Let's Encrypt (`kiwinet.me`) | 🔄 Phase 4 en cours |
+| Uptime Kuma — monitor HTTPS | ⏳ Après déploiement Traefik VPS |
 | Renouvellement certificat Freebox | 15/06/2026 |
 
 ---
 
-*Document maintenu à jour au fil des phases. Voir [ADR-001](./docs/adr/001-reorganisation-repositories.md) pour le détail des décisions de réorganisation.*
+*Document maintenu à jour au fil des phases. Voir [ADR-001](./docs/adr/001-reorganisation-repositories.md) pour la réorganisation des repositories, [ADR-002](./docs/adr/002-migration-cloud-kiwinet-web.md) pour la migration cloud, [ADR-003](./docs/adr/003-https-vps-nettoyage-architecture.md) pour l'architecture Phase 4.*
