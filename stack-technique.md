@@ -1,7 +1,7 @@
 # Stack technique — Kiwinet
 
 > Document de référence des choix technologiques validés.
-> Dernière mise à jour : avril 2026 — Phase 4 en cours : HTTPS VPS Scaleway (Traefik + Let's Encrypt)
+> Dernière mise à jour : avril 2026 — Déploiement Komga / Komf / BedethequeKomga
 
 ---
 
@@ -72,7 +72,8 @@ IP publique fixe (Freebox Delta)                          VPS Scaleway (fr-par-1
     │               ├── plex.kiwinet.me     → Plex             │                   → kiwinet-web (Nginx)
     │               ├── hub.kiwinet.me      → Home Assistant   │
     │               ├── status.kiwinet.me   → Uptime Kuma      │
-    │               └── grafana.kiwinet.me  → Grafana          │
+    │               ├── grafana.kiwinet.me  → Grafana          │
+    │               └── komga.kiwinet.me    → Komga            │
     │                                                          │
     ├── :22    → SSH (hors Docker)                             └── :2222 → SSH
     ├── :25565 → Minecraft (TCP passthrough Traefik)
@@ -133,6 +134,7 @@ Un certificat wildcard (`*.kiwinet.me`) nécessiterait un DNS Challenge, qui req
 | #5 | `status.kiwinet.me` | Traefik | VM Freebox | Automatique |
 | #6 | `grafana.kiwinet.me` | Traefik | VM Freebox | Automatique |
 | #7 | `freebox.kiwinet.me` | Certbot standalone | VM Freebox | Manuel — 15/06/2026 |
+| #8 | `komga.kiwinet.me` | Traefik | VM Freebox | Automatique |
 
 Le certificat `freebox.kiwinet.me` est un cas particulier : la Freebox bloque les connexions en loopback, Traefik ne peut pas lui faire de proxy. Le certificat est généré par Certbot standalone (port 80 libéré temporairement) et importé manuellement dans l'interface Freebox.
 
@@ -251,6 +253,38 @@ Double tag systématique : `latest` (commodité) + `<sha>` (rollback possible ve
 
 ---
 
+### Lecture / Médiathèque
+
+Serveur de BD et manga auto-hébergé, avec enrichissement automatique des métadonnées.
+
+**Komga**
+- Serveur de bibliothèque BD/manga (image `gotson/komga`, port 25600)
+- Exposé via Traefik + Let's Encrypt sur `komga.kiwinet.me`
+- Deux bibliothèques : Bandes Dessinées et Mangas
+- Stockage : montage CIFS NAS Freebox (`/mnt/Kodi/Lecture`, lecture seule)
+- Client mobile recommandé : Komelia (F-Droid, client officiel)
+
+**Komf — métadonnées manga (automatique)**
+- Enrichissement automatique via MangaUpdates, AniList, MangaDex
+- Écoute le flux SSE Komga — traitement déclenché après la fin complète du scan
+- Interne uniquement (port 8085, non exposé)
+
+**BedethequeKomga — métadonnées BD franco-belge (ponctuel)**
+- Script Python tiers (`github.com/Inervo/BedethequeKomga`)
+- Interroge Bedetheque.com pour les métadonnées des albums franco-belges
+- À lancer manuellement après ajout de nouvelles BD
+
+**Formats de collection :**
+
+| Collection | Format actuel | Format cible |
+|---|---|---|
+| Mangas | CBZ (convertis depuis PDF à 150 DPI via `convert_pdf_to_cbz.sh`) | — |
+| Bandes Dessinées | PDF | CBZ à 200 DPI (format album plus grand) |
+
+**ComicVine** : clé API disponible, actuellement désactivé — BedethequeKomga couvre mieux les BD franco-belges.
+
+---
+
 ### Observabilité
 
 Deux niveaux complémentaires, regroupés dans `kiwinet-observability` :
@@ -305,7 +339,10 @@ Un peer par appareil client, clé révocable individuellement.
 | Home Assistant | ~630 Mo |
 | Mosquitto | ~3 Mo |
 | Minecraft (4 Go alloués) | ~500 Mo idle |
-| **Total stack** | **~3 Go** |
+| Komga | ~300 Mo |
+| Komf | ~150 Mo |
+| BedethequeKomga | ~50 Mo (ponctuel) |
+| **Total stack** | **~3,5 Go** |
 
 Marge confortable sur 12 Go avec la stack complète active.
 
@@ -329,6 +366,9 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Média | Plex (Docker) | Labels Traefik, ARM64 officiel |
 | Domotique | Home Assistant | Open source, Google Cast/MQTT |
 | Broker IoT | Mosquitto | MQTT léger, local |
+| Bibliothèque BD/manga | Komga | Open source, ARM64, API riche |
+| Métadonnées manga | Komf | Enrichissement automatique SSE |
+| Métadonnées BD | BedethequeKomga | Source francophone, script ponctuel |
 | Disponibilité | Uptime Kuma | Page publique, alertes Discord |
 | Métriques containers | cAdvisor | Métriques Docker temps réel |
 | Métriques système | Node Exporter | CPU, RAM, disk, réseau |
@@ -350,6 +390,7 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Mises à jour système VM | Mensuel | — |
 | Rotation clés WireGuard | Si compromis | — |
 | Passage Minecraft VANILLA → PAPER | Dès support 26.1 | À surveiller |
+| Conversion BD franco-belges PDF → CBZ | Ponctuel | À planifier |
 
 ---
 
@@ -379,6 +420,7 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Traefik VPS + Let's Encrypt (`kiwinet.me`) | 🔄 Phase 4 en cours |
 | Uptime Kuma — monitor HTTPS | ⏳ Après déploiement Traefik VPS |
 | Renouvellement certificat Freebox | 15/06/2026 |
+| Komga + Komf + BedethequeKomga | ✅ Validé (30 avril 2026) |
 
 ---
 
