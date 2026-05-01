@@ -1,7 +1,7 @@
 # Stack technique — Kiwinet
 
 > Document de référence des choix technologiques validés.
-> Dernière mise à jour : avril 2026 — Déploiement Komga / Komf / BedethequeKomga
+> Dernière mise à jour : mai 2026 — Déploiement Calibre-Web
 
 ---
 
@@ -73,7 +73,8 @@ IP publique fixe (Freebox Delta)                          VPS Scaleway (fr-par-1
     │               ├── hub.kiwinet.me      → Home Assistant   │
     │               ├── status.kiwinet.me   → Uptime Kuma      │
     │               ├── grafana.kiwinet.me  → Grafana          │
-    │               └── komga.kiwinet.me    → Komga            │
+    │               ├── komga.kiwinet.me    → Komga            │
+    │               └── calibre.kiwinet.me → Calibre-Web      │
     │                                                          │
     ├── :22    → SSH (hors Docker)                             └── :2222 → SSH
     ├── :25565 → Minecraft (TCP passthrough Traefik)
@@ -135,6 +136,7 @@ Un certificat wildcard (`*.kiwinet.me`) nécessiterait un DNS Challenge, qui req
 | #6 | `grafana.kiwinet.me` | Traefik | VM Freebox | Automatique |
 | #7 | `freebox.kiwinet.me` | Certbot standalone | VM Freebox | Manuel — 15/06/2026 |
 | #8 | `komga.kiwinet.me` | Traefik | VM Freebox | Automatique |
+| #9 | `calibre.kiwinet.me` | Traefik | VM Freebox | Automatique |
 
 Le certificat `freebox.kiwinet.me` est un cas particulier : la Freebox bloque les connexions en loopback, Traefik ne peut pas lui faire de proxy. Le certificat est généré par Certbot standalone (port 80 libéré temporairement) et importé manuellement dans l'interface Freebox.
 
@@ -202,32 +204,9 @@ url: "http://172.18.0.1:8123"
 
 ### Site principal — Astro + Nginx Alpine
 
-- Astro : générateur statique, zéro JavaScript inutile, image Docker finale ~15 Mo
-- Nginx Alpine : serveur de fichiers minimaliste dans le container
-- Build multi-stage : Astro → Nginx Alpine
-- Architecture AMD64 : build natif sur runner GitHub Actions x86_64, déployé sur VPS Scaleway
-
----
-
-### CI/CD — GitHub Actions + SSH
-
-Déclenché à chaque push sur `main` de `kiwinet-web` :
-
-```
-git push origin main
-    ↓
-GitHub Actions :
-  ├── docker build (linux/amd64 — natif runner GitHub)
-  ├── docker push → ghcr.io/rookain-kiwi/kiwinet-web:latest + :<sha>
-  └── SSH → VPS Scaleway → docker compose pull + up -d
-```
-
-Double tag systématique : `latest` (commodité) + `<sha>` (rollback possible vers n'importe quelle version).
-
-**Convention commentaires GitHub Actions :**
-- Aucun commentaire inline dans les valeurs scalaires (`tags:`, `image:`, `run:`, `name:`)
-- Aucun commentaire dans les blocs multilignes (`|` ou `>`) — le `#` y est transmis comme donnée brute
-- Commentaires sur la ligne précédant la clé concernée
+- Généré statiquement, image Docker finale ~15 Mo
+- CI/CD GitHub Actions : build ARM64 via QEMU/Buildx, push GHCR, déploiement SSH
+- Double tag : `latest` + SHA commit (rollback possible)
 
 ---
 
@@ -255,7 +234,7 @@ Double tag systématique : `latest` (commodité) + `<sha>` (rollback possible ve
 
 ### Lecture / Médiathèque
 
-Serveur de BD et manga auto-hébergé, avec enrichissement automatique des métadonnées.
+Serveurs de bibliothèque auto-hébergés, avec enrichissement automatique des métadonnées.
 
 **Komga**
 - Serveur de bibliothèque BD/manga (image `gotson/komga`, port 25600)
@@ -273,6 +252,14 @@ Serveur de BD et manga auto-hébergé, avec enrichissement automatique des méta
 - Script Python tiers (`github.com/Inervo/BedethequeKomga`)
 - Interroge Bedetheque.com pour les métadonnées des albums franco-belges
 - À lancer manuellement après ajout de nouvelles BD
+
+**Calibre-Web — bibliothèque ebooks**
+- Serveur de bibliothèque numérique (image `lscr.io/linuxserver/calibre-web`, port 8083)
+- Exposé via Traefik + Let's Encrypt sur `calibre.kiwinet.me`
+- Formats supportés : EPUB, PDF, MOBI — conversion à la volée via mod `universal-calibre`
+- Stockage fichiers : montage CIFS NAS Freebox (`/mnt/Kodi/Lecture/Livres`, lecture/écriture)
+- Base SQLite en local VM (incompatibilité CIFS/SQLite) — option "Separate Book Files from Library" activée
+- Client mobile recommandé : KOReader via OPDS — compatible Kobo via plugin natif
 
 **Formats de collection :**
 
@@ -342,7 +329,8 @@ Un peer par appareil client, clé révocable individuellement.
 | Komga | ~300 Mo |
 | Komf | ~150 Mo |
 | BedethequeKomga | ~50 Mo (ponctuel) |
-| **Total stack** | **~3,5 Go** |
+| Calibre-Web | ~200 Mo |
+| **Total stack** | **~3,7 Go** |
 
 Marge confortable sur 12 Go avec la stack complète active.
 
@@ -369,6 +357,7 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Bibliothèque BD/manga | Komga | Open source, ARM64, API riche |
 | Métadonnées manga | Komf | Enrichissement automatique SSE |
 | Métadonnées BD | BedethequeKomga | Source francophone, script ponctuel |
+| Bibliothèque ebooks | Calibre-Web | Open source, OPDS, ARM64, conversion EPUB/MOBI/PDF |
 | Disponibilité | Uptime Kuma | Page publique, alertes Discord |
 | Métriques containers | cAdvisor | Métriques Docker temps réel |
 | Métriques système | Node Exporter | CPU, RAM, disk, réseau |
@@ -421,6 +410,7 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Uptime Kuma — monitor HTTPS | ⏳ Après déploiement Traefik VPS |
 | Renouvellement certificat Freebox | 15/06/2026 |
 | Komga + Komf + BedethequeKomga | ✅ Validé (30 avril 2026) |
+| Calibre-Web (bibliothèque ebooks) | ✅ Validé (1er mai 2026) |
 
 ---
 
