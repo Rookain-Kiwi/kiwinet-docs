@@ -1,7 +1,7 @@
 # Stack technique — Kiwinet
 
 > Document de référence des choix technologiques validés.
-> Dernière mise à jour : mai 2026 — Déploiement Calibre-Web
+> Dernière mise à jour : mai 2026 — Architecture Calibre-Web locale (hors CIFS)
 
 ---
 
@@ -257,8 +257,8 @@ Serveurs de bibliothèque auto-hébergés, avec enrichissement automatique des m
 - Serveur de bibliothèque numérique (image `lscr.io/linuxserver/calibre-web`, port 8083)
 - Exposé via Traefik + Let's Encrypt sur `calibre.kiwinet.me`
 - Formats supportés : EPUB, PDF, MOBI — conversion à la volée via mod `universal-calibre`
-- Stockage fichiers : montage CIFS NAS Freebox (`/mnt/Kodi/Lecture/Livres`, lecture/écriture)
-- Base SQLite en local VM (incompatibilité CIFS/SQLite) — option "Separate Book Files from Library" activée
+- Stockage intégralement local sur la VM (`./books/`) — incompatibilité CIFS/SQLite et rename() atomique bloquants
+- Alimentation exclusivement via l'interface web — aucune dépendance au NAS Freebox
 - Client mobile recommandé : KOReader via OPDS — compatible Kobo via plugin natif
 
 **Formats de collection :**
