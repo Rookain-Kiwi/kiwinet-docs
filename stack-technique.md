@@ -1,7 +1,7 @@
 # Stack technique — Kiwinet
 
 > Document de référence des choix technologiques validés.
-> Dernière mise à jour : mai 2026 — Architecture Calibre-Web locale (hors CIFS)
+> Dernière mise à jour : mai 2026 — Stabilisation DNS Uptime Kuma (fallback Cloudflare/Quad9)
 
 ---
 
@@ -290,6 +290,11 @@ Deux niveaux complémentaires, regroupés dans `kiwinet-observability` :
 | cAdvisor métriques containers | 19792 | Prometheus |
 
 Logs : consultés via **Explore → Loki**. Les dashboards communautaires Loki (13639, 15141) ont des variables orphelines (`DS_LOKI`) — Explore est l'interface recommandée.
+
+**Points critiques Uptime Kuma :**
+- **DNS** : le container hérite par défaut du resolver de l'hôte (Freebox `192.168.1.254`). Une instabilité ponctuelle provoque des erreurs `ENOTFOUND` et de fausses alertes sur tous les monitors. Correction : directive `dns: [1.1.1.1, 9.9.9.9, 192.168.1.254]` dans le compose.
+- **Home Assistant** : rejette les requêtes HEAD avec un 405 — configurer la méthode GET dans le monitor.
+- **Réglages recommandés** : Essais = 2, Timeout = 10s sur tous les monitors.
 
 **Points critiques monitoring :**
 - Permissions Loki : `user: "0"`, volume sur `/loki` (pas `/tmp/loki`)
