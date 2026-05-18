@@ -1,7 +1,7 @@
 # Stack technique — Kiwinet
 
 > Document de référence des choix technologiques validés.
-> Dernière mise à jour : mai 2026 — Stabilisation DNS Uptime Kuma (fallback Cloudflare/Quad9)
+> Dernière mise à jour : mai 2026 — Ajout RetroArch ; remplacement Calibre-Web par Komga
 
 ---
 
@@ -20,7 +20,7 @@ Chaque choix technologique est motivé par trois critères :
 | Composant      | Détail                              |
 |----------------|-------------------------------------|
 | OS             | Debian GNU/Linux 13.3 (Trixie)      |
-| Architecture   | ARM Cortex-A72 — AArch64 (2 vCPU)  |
+| Architecture   | ARM Cortex-A72 — AArch64 (3 vCPU)  |
 | RAM            | 12 Go                               |
 | Virtualisation | QEMU / VirtIO (Freebox Delta)       |
 | Stockage       | VirtIO Disk                         |
@@ -74,7 +74,7 @@ IP publique fixe (Freebox Delta)                          VPS Scaleway (fr-par-1
     │               ├── status.kiwinet.me   → Uptime Kuma      │
     │               ├── grafana.kiwinet.me  → Grafana          │
     │               ├── komga.kiwinet.me    → Komga            │
-    │               └── calibre.kiwinet.me → Calibre-Web      │
+    │               └── retroarch.kiwinet.me   → RetroArch        │
     │                                                          │
     ├── :22    → SSH (hors Docker)                             └── :2222 → SSH
     ├── :25565 → Minecraft (TCP passthrough Traefik)
@@ -136,7 +136,7 @@ Un certificat wildcard (`*.kiwinet.me`) nécessiterait un DNS Challenge, qui req
 | #6 | `grafana.kiwinet.me` | Traefik | VM Freebox | Automatique |
 | #7 | `freebox.kiwinet.me` | Certbot standalone | VM Freebox | Manuel — 15/06/2026 |
 | #8 | `komga.kiwinet.me` | Traefik | VM Freebox | Automatique |
-| #9 | `calibre.kiwinet.me` | Traefik | VM Freebox | Automatique |
+| #9 | `retroarch.kiwinet.me` | Traefik | VM Freebox | Automatique |
 
 Le certificat `freebox.kiwinet.me` est un cas particulier : la Freebox bloque les connexions en loopback, Traefik ne peut pas lui faire de proxy. Le certificat est généré par Certbot standalone (port 80 libéré temporairement) et importé manuellement dans l'interface Freebox.
 
@@ -242,6 +242,7 @@ Serveurs de bibliothèque auto-hébergés, avec enrichissement automatique des m
 - Deux bibliothèques : Bandes Dessinées et Mangas
 - Stockage : montage CIFS NAS Freebox (`/mnt/Kodi/Lecture`, lecture seule)
 - Client mobile recommandé : Komelia (F-Droid, client officiel)
+- *Remplace Calibre-Web, retiré en mai 2026 — incompatibilité CIFS/SQLite bloquante*
 
 **Komf — métadonnées manga (automatique)**
 - Enrichissement automatique via MangaUpdates, AniList, MangaDex
@@ -253,14 +254,6 @@ Serveurs de bibliothèque auto-hébergés, avec enrichissement automatique des m
 - Interroge Bedetheque.com pour les métadonnées des albums franco-belges
 - À lancer manuellement après ajout de nouvelles BD
 
-**Calibre-Web — bibliothèque ebooks**
-- Serveur de bibliothèque numérique (image `lscr.io/linuxserver/calibre-web`, port 8083)
-- Exposé via Traefik + Let's Encrypt sur `calibre.kiwinet.me`
-- Formats supportés : EPUB, PDF, MOBI — conversion à la volée via mod `universal-calibre`
-- Stockage intégralement local sur la VM (`./books/`) — incompatibilité CIFS/SQLite et rename() atomique bloquants
-- Alimentation exclusivement via l'interface web — aucune dépendance au NAS Freebox
-- Client mobile recommandé : KOReader via OPDS — compatible Kobo via plugin natif
-
 **Formats de collection :**
 
 | Collection | Format actuel | Format cible |
@@ -269,6 +262,30 @@ Serveurs de bibliothèque auto-hébergés, avec enrichissement automatique des m
 | Bandes Dessinées | PDF | CBZ à 200 DPI (format album plus grand) |
 
 **ComicVine** : clé API disponible, actuellement désactivé — BedethequeKomga couvre mieux les BD franco-belges.
+
+---
+
+### Émulation rétro — RetroArch
+
+Frontend d'émulation multi-systèmes, accessible depuis n'importe quel navigateur via KasmVNC.
+Tout le rendu graphique et audio est géré côté serveur (LLVMPipe, rendu CPU) et streamé en HTTPS.
+
+**Image** : `lscr.io/linuxserver/retroarch` (multi-arch, ARM64 natif)
+**Accès** : `retroarch.kiwinet.me` — authentification KasmVNC (`.env`)
+
+| Système | Core Libretro | BIOS requis |
+|---|---|---|
+| Amstrad CPC | `cap32` (Caprice32) | Non |
+| Oric Atmos | `fuse` (support partiel — voir note) | Non |
+| Amiga 500 / 1200 | `puae` (UAE4ARM) | **Oui** — Kickstart ROM |
+
+**Note Oric Atmos** : aucun core Libretro dédié maintenu activement. Le core `fuse` offre un résultat correct sur la majorité des `.tap` commerciaux. Un déploiement `oricutron` dédié est envisagé si les limitations s'avèrent bloquantes.
+
+**Points critiques :**
+- `shm_size: 1gb` obligatoire pour la stabilité KasmVNC
+- BIOS Amiga (Kickstart) à déposer dans `retroarch/config/retroarch/system/` avant le premier démarrage
+- `InsecureSkipVerify: true` dans les labels Traefik (certificat auto-signé interne du container)
+- ROMs stockées localement sur la VM — alimenter via SCP/rsync depuis la machine locale
 
 ---
 
@@ -334,7 +351,8 @@ Un peer par appareil client, clé révocable individuellement.
 | Komga | ~300 Mo |
 | Komf | ~150 Mo |
 | BedethequeKomga | ~50 Mo (ponctuel) |
-| Calibre-Web | ~200 Mo |
+| RetroArch (idle) | ~300 Mo |
+| RetroArch (en jeu, Amiga) | ~500 Mo |
 | **Total stack** | **~3,7 Go** |
 
 Marge confortable sur 12 Go avec la stack complète active.
@@ -362,7 +380,7 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Bibliothèque BD/manga | Komga | Open source, ARM64, API riche |
 | Métadonnées manga | Komf | Enrichissement automatique SSE |
 | Métadonnées BD | BedethequeKomga | Source francophone, script ponctuel |
-| Bibliothèque ebooks | Calibre-Web | Open source, OPDS, ARM64, conversion EPUB/MOBI/PDF |
+| Émulation rétro | RetroArch (linuxserver) | KasmVNC intégré, ARM64, accès navigateur |
 | Disponibilité | Uptime Kuma | Page publique, alertes Discord |
 | Métriques containers | cAdvisor | Métriques Docker temps réel |
 | Métriques système | Node Exporter | CPU, RAM, disk, réseau |
@@ -415,7 +433,8 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Uptime Kuma — monitor HTTPS | ⏳ Après déploiement Traefik VPS |
 | Renouvellement certificat Freebox | 15/06/2026 |
 | Komga + Komf + BedethequeKomga | ✅ Validé (30 avril 2026) |
-| Calibre-Web (bibliothèque ebooks) | ✅ Validé (1er mai 2026) |
+| Calibre-Web → retiré, remplacé par Komga | ✅ Mai 2026 |
+| RetroArch (émulation rétro navigateur) | ✅ Validé (mai 2026) |
 
 ---
 
