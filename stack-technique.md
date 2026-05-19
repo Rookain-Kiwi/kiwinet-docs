@@ -1,7 +1,7 @@
 # Stack technique — Kiwinet
 
 > Document de référence des choix technologiques validés.
-> Dernière mise à jour : mai 2026 — Ajout RetroArch ; remplacement Calibre-Web par Komga
+> Dernière mise à jour : mai 2026 — Remplacement Calibre-Web par Komga ; exploration émulation rétro abandonnée (voir ADR-004)
 
 ---
 
@@ -73,8 +73,7 @@ IP publique fixe (Freebox Delta)                          VPS Scaleway (fr-par-1
     │               ├── hub.kiwinet.me      → Home Assistant   │
     │               ├── status.kiwinet.me   → Uptime Kuma      │
     │               ├── grafana.kiwinet.me  → Grafana          │
-    │               ├── komga.kiwinet.me    → Komga            │
-    │               └── retroarch.kiwinet.me   → RetroArch        │
+    │               └── komga.kiwinet.me    → Komga            │
     │                                                          │
     ├── :22    → SSH (hors Docker)                             └── :2222 → SSH
     ├── :25565 → Minecraft (TCP passthrough Traefik)
@@ -136,7 +135,6 @@ Un certificat wildcard (`*.kiwinet.me`) nécessiterait un DNS Challenge, qui req
 | #6 | `grafana.kiwinet.me` | Traefik | VM Freebox | Automatique |
 | #7 | `freebox.kiwinet.me` | Certbot standalone | VM Freebox | Manuel — 15/06/2026 |
 | #8 | `komga.kiwinet.me` | Traefik | VM Freebox | Automatique |
-| #9 | `retroarch.kiwinet.me` | Traefik | VM Freebox | Automatique |
 
 Le certificat `freebox.kiwinet.me` est un cas particulier : la Freebox bloque les connexions en loopback, Traefik ne peut pas lui faire de proxy. Le certificat est généré par Certbot standalone (port 80 libéré temporairement) et importé manuellement dans l'interface Freebox.
 
@@ -265,30 +263,6 @@ Serveurs de bibliothèque auto-hébergés, avec enrichissement automatique des m
 
 ---
 
-### Émulation rétro — RetroArch
-
-Frontend d'émulation multi-systèmes, accessible depuis n'importe quel navigateur via KasmVNC.
-Tout le rendu graphique et audio est géré côté serveur (LLVMPipe, rendu CPU) et streamé en HTTPS.
-
-**Image** : `lscr.io/linuxserver/retroarch` (multi-arch, ARM64 natif)
-**Accès** : `retroarch.kiwinet.me` — authentification KasmVNC (`.env`)
-
-| Système | Core Libretro | BIOS requis |
-|---|---|---|
-| Amstrad CPC | `cap32` (Caprice32) | Non |
-| Oric Atmos | `fuse` (support partiel — voir note) | Non |
-| Amiga 500 / 1200 | `puae` (UAE4ARM) | **Oui** — Kickstart ROM |
-
-**Note Oric Atmos** : aucun core Libretro dédié maintenu activement. Le core `fuse` offre un résultat correct sur la majorité des `.tap` commerciaux. Un déploiement `oricutron` dédié est envisagé si les limitations s'avèrent bloquantes.
-
-**Points critiques :**
-- `shm_size: 1gb` obligatoire pour la stabilité KasmVNC
-- BIOS Amiga (Kickstart) à déposer dans `retroarch/config/retroarch/system/` avant le premier démarrage
-- `InsecureSkipVerify: true` dans les labels Traefik (certificat auto-signé interne du container)
-- ROMs stockées localement sur la VM — alimenter via SCP/rsync depuis la machine locale
-
----
-
 ### Observabilité
 
 Deux niveaux complémentaires, regroupés dans `kiwinet-observability` :
@@ -351,9 +325,7 @@ Un peer par appareil client, clé révocable individuellement.
 | Komga | ~300 Mo |
 | Komf | ~150 Mo |
 | BedethequeKomga | ~50 Mo (ponctuel) |
-| RetroArch (idle) | ~300 Mo |
-| RetroArch (en jeu, Amiga) | ~500 Mo |
-| **Total stack** | **~3,7 Go** |
+| **Total stack** | **~2,9 Go** |
 
 Marge confortable sur 12 Go avec la stack complète active.
 
@@ -380,7 +352,6 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Bibliothèque BD/manga | Komga | Open source, ARM64, API riche |
 | Métadonnées manga | Komf | Enrichissement automatique SSE |
 | Métadonnées BD | BedethequeKomga | Source francophone, script ponctuel |
-| Émulation rétro | RetroArch (linuxserver) | KasmVNC intégré, ARM64, accès navigateur |
 | Disponibilité | Uptime Kuma | Page publique, alertes Discord |
 | Métriques containers | cAdvisor | Métriques Docker temps réel |
 | Métriques système | Node Exporter | CPU, RAM, disk, réseau |
@@ -434,8 +405,8 @@ Marge confortable sur 12 Go avec la stack complète active.
 | Renouvellement certificat Freebox | 15/06/2026 |
 | Komga + Komf + BedethequeKomga | ✅ Validé (30 avril 2026) |
 | Calibre-Web → retiré, remplacé par Komga | ✅ Mai 2026 |
-| RetroArch (émulation rétro navigateur) | ✅ Validé (mai 2026) |
+| Émulation rétro → explorée, non retenue (voir ADR-004) | ❌ Mai 2026 |
 
 ---
 
-*Document maintenu à jour au fil des phases. Voir [ADR-001](./docs/adr/001-reorganisation-repositories.md) pour la réorganisation des repositories, [ADR-002](./docs/adr/002-migration-cloud-kiwinet-web.md) pour la migration cloud, [ADR-003](./docs/adr/003-https-vps-nettoyage-architecture.md) pour l'architecture Phase 4.*
+*Document maintenu à jour au fil des phases. Voir [ADR-001](./docs/adr/001-reorganisation-repositories.md) pour la réorganisation des repositories, [ADR-002](./docs/adr/002-migration-cloud-kiwinet-web.md) pour la migration cloud, [ADR-003](./docs/adr/003-https-vps-nettoyage-architecture.md) pour l'architecture Phase 4, [ADR-004](./docs/adr/004-emulation-retro.md) pour l'exploration émulation.*
