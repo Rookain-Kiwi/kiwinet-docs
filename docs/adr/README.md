@@ -8,3 +8,5 @@ Chaque décision est immutable : si une décision évolue, un nouvel ADR est cr�
 | [ADR-001](./001-reorganisation-repositories.md) | Réorganisation des repositories et stratégie IaC | Accepté | Avril 2026 |
 | [ADR-002](./002-migration-cloud-kiwinet-web.md) | Migration de kiwinet-web vers VPS Scaleway | Accepté | Avril 2026 |
 | [ADR-003](./003-https-vps-nettoyage-architecture.md) | HTTPS sur le VPS Scaleway et consolidation de l'architecture | Accepté | Avril 2026 |
+| [ADR-004](./004-emulation-retro.md) | Exploration émulation rétro sur VM ARM64 | Abandonné | Mai 2026 |
+| [ADR-005](./005-postgresql-mutualise-pgadmin.md) | Base de données mutualisée PostgreSQL et interface PgAdmin | Accepté | Juin 2026 |
